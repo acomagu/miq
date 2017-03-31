@@ -32,9 +32,14 @@ type Response struct {
 // InputRule is part of InputConfig
 type InputRule struct {
 	Path string
+	Before string
+	Befores []string
 	Query string
 	Queries []string
+	After string
+	Afters []string
 	Method string
+	Transaction bool
 }
 
 // InputConfig is for reading YAML config file
@@ -46,8 +51,11 @@ type InputConfig struct {
 // Rule is part of `Config`, it's set of the routing path and the SQL query.
 type Rule struct {
 	Path string
+	Befores []string
 	Queries []string
+	Afters []string
 	Method Method
+	Transaction bool
 }
 
 // Config contains configs of whole app
@@ -82,7 +90,17 @@ func normalizeRules(orig []InputRule) ([]Rule, error) {
 }
 
 func normalizeRule(orig InputRule) (Rule, error) {
+	befores, err := normalizeBefores(orig.Before, orig.Befores)
+	if err != nil {
+		return Rule{}, err
+	}
+
 	queries, err := normalizeQuery(orig.Query, orig.Queries)
+	if err != nil {
+		return Rule{}, err
+	}
+
+	afters, err := normalizeAfters(orig.After, orig.Afters)
 	if err != nil {
 		return Rule{}, err
 	}
@@ -98,7 +116,9 @@ func normalizeRule(orig InputRule) (Rule, error) {
 	}
 
 	return Rule{
+		Befores: befores,
 		Queries: queries,
+		Afters: afters,
 		Method: method,
 		Path: path,
 	}, nil
@@ -106,6 +126,28 @@ func normalizeRule(orig InputRule) (Rule, error) {
 
 func normalizePath(orig string) (string, error) {
 	return orig, nil
+}
+
+func normalizeBefores(before string, befores []string) ([]string, error) {
+	if before == "" && len(befores) == 0 {
+		return []string{}, fmt.Errorf("both of `before` and `befores` can't be defined in a rule")
+	} else if before != "" {
+		return []string{before}, nil
+	} else if len(befores) > 0 {
+		return befores, nil
+	}
+	return []string{}, nil
+}
+
+func normalizeAfters(after string, afters []string) ([]string, error) {
+	if after == "" && len(afters) == 0 {
+		return []string{}, fmt.Errorf("both of `after` and `afters` can't be defined in a rule")
+	} else if after != "" {
+		return []string{after}, nil
+	} else if len(afters) > 0 {
+		return afters, nil
+	}
+	return []string{}, nil
 }
 
 func normalizeQuery(query string, queries []string) ([]string, error) {

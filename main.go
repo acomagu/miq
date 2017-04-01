@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"github.com/pkg/errors"
 	"encoding/json"
 	"gopkg.in/yaml.v2"
 	"github.com/jmoiron/sqlx"
@@ -138,7 +139,7 @@ func normalizePath(orig string) (string, error) {
 }
 
 func normalizeBefores(before string, befores []string) ([]string, error) {
-	if before == "" && len(befores) == 0 {
+	if before != "" && len(befores) != 0 {
 		return []string{}, fmt.Errorf("both of `before` and `befores` can't be defined in a rule")
 	} else if before != "" {
 		return []string{before}, nil
@@ -149,7 +150,7 @@ func normalizeBefores(before string, befores []string) ([]string, error) {
 }
 
 func normalizeAfters(after string, afters []string) ([]string, error) {
-	if after == "" && len(afters) == 0 {
+	if after != "" && len(afters) != 0 {
 		return []string{}, fmt.Errorf("both of `after` and `afters` can't be defined in a rule")
 	} else if after != "" {
 		return []string{after}, nil
@@ -160,7 +161,7 @@ func normalizeAfters(after string, afters []string) ([]string, error) {
 }
 
 func normalizeQuery(query string, queries []string) ([]string, error) {
-	if query == "" && len(queries) == 0 {
+	if query != "" && len(queries) != 0 {
 		return []string{}, fmt.Errorf("both of `query` and `queries` can't be defined in a rule")
 	} else if query != "" {
 		return []string{query}, nil
@@ -182,6 +183,8 @@ func newMethod(method string) (Method, error) {
 		return PATCH, nil
 	case "DELETE":
 		return DELETE, nil
+	case "":
+		return GET, nil
 	}
 	return "", fmt.Errorf("invalid method name")
 }
@@ -206,6 +209,9 @@ const (
 	// DELETE expresses DELETE method
 	DELETE = "DELETE"
 )
+
+// QueryExecutionError causes in execution SQL query
+type QueryExecutionError error
 
 func main() {
 	inputConfig := InputConfig{}

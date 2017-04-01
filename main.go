@@ -48,12 +48,17 @@ type InputConfig struct {
 	Rules []InputRule `yaml:"rules"`
 }
 
-// Rule is part of `Config`, it's set of the routing path and the SQL query.
-type Rule struct {
-	Path string
+// QuerySet contains all queries to execute.
+type QuerySet struct {
 	Befores []string
 	Queries []string
 	Afters []string
+}
+
+// Rule is part of `Config`, it's set of the routing path and the SQL query.
+type Rule struct {
+	QuerySet
+	Path string
 	Method Method
 	Transaction bool
 }
@@ -115,10 +120,14 @@ func normalizeRule(orig InputRule) (Rule, error) {
 		return Rule{}, err
 	}
 
-	return Rule{
+	querySet := QuerySet{
 		Befores: befores,
 		Queries: queries,
 		Afters: afters,
+	}
+
+	return Rule{
+		QuerySet: querySet,
 		Method: method,
 		Path: path,
 	}, nil
@@ -214,62 +223,76 @@ func main() {
 
 	router := httprouter.New()
 	for _, rule := range config.Rules {
-		router.Handle(string(rule.Method), rule.Path, createHandler(db, rule))
+		router.Handle(string(rule.Method), rule.Path, createHandler(db, rule.QuerySet))
 	}
 	fmt.Println(http.ListenAndServe(":8000", router))
 }
 
-func createHandler(db *sqlx.DB, r Rule) httprouter.Handle {
+func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		t, err := template.New("sql").Parse(r.Queries)
+		rowMaps, err := executeQueriesRowMaps(db, q.Queries, createParamMap(params))
 		if err != nil {
-			fmt.Println("invalid SQL template")
-			return
-		}
-		err = t.Execute(os.Stdout, createParamMap(params))
-		if err != nil {
-			fmt.Println(err)
-			return
+			bts, marshalErr := json.Marshal(Response{
+				Success: false,
+				ErrorType: getErrorType(err),
+				ErrorDescription: err.Error(),
+			})
+			if marshalErr != nil {
+				panic(marshalErr)
+			}
+			w.Write(bts)
 		}
 
-		rows, err := db.Queryx(r.SQL)
-		if err != nil {
-			bts, err2 := json.Marshal(response{
-				Success: false,
-				ErrorType: "sqlExecutionError",
-				ErrorDescription: err.Error(),
-			})
-			if err2 != nil {
-				panic(err2)
-			}
-			w.Write(bts)
-			return
-		}
-		res, err := createMapSliceFromRows(rows)
-		if err != nil {
-			bts, err2 := json.Marshal(response{
-				Success: false,
-				ErrorType: "sqlExecutionError",
-				ErrorDescription: err.Error(),
-			})
-			if err2 != nil {
-				panic(err2)
-			}
-			w.Write(bts)
-			return
-		}
-		if err != nil {
-			panic(err)
-		}
-		bts, err := json.Marshal(response{
+		bts, marshalErr := json.Marshal(Response{
 			Success: true,
-			Rows: res,
+			Rows: rowMaps,
 		})
-		if err != nil {
-			panic(err)
+		if marshalErr != nil {
+			panic(marshalErr)
 		}
 		w.Write(bts)
 	}
+}
+
+func getErrorType(err error) string {
+	switch err.(type) {
+	case QueryExecutionError:
+		return "QueryExecutionError"
+	}
+	return "Unknown"
+}
+
+func executeQueriesRowMaps(db *sqlx.DB, qs []string, paramMap map[string]string) ([]map[string]interface{}, error) {
+	concated := []map[string]interface{}{}
+	for _, q := range qs {
+		rowMap, err := executeRowMaps(db, q, paramMap)
+		if err != nil {
+			return nil, err
+		}
+		concated = append(concated, rowMap...)
+	}
+	return concated, nil
+}
+
+func executeRowMaps(db *sqlx.DB, q string, paramMap map[string]string) ([]map[string]interface{}, error) {
+	t, err := template.New("sql").Parse(q)
+	if err != nil {
+		return nil, err
+	}
+	err = t.Execute(os.Stdout, paramMap)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Queryx(q)
+	if err != nil {
+		return nil, QueryExecutionError(errors.Wrap(err, "failed to execute query"))
+	}
+	res, err := createMapSliceFromRows(rows)
+	if err != nil {
+		return nil, QueryExecutionError(errors.Wrap(err, "failed to create map slice from results"))
+	}
+	return res, nil
 }
 
 func createParamMap(params httprouter.Params) map[string]string {

@@ -47,6 +47,7 @@ type DBConfig struct {
 type InputConfig struct {
 	DB DBConfig `yaml:"db"`
 	Rules []InputRule `yaml:"rules"`
+	Port int `yaml:"port"`
 }
 
 // QuerySet contains all queries to execute for a Rule.
@@ -126,6 +127,7 @@ type Rule struct {
 type Config struct {
 	DB DBConfig
 	Rules []Rule
+	Port int
 }
 
 // Config returns one converted to Config struct
@@ -135,10 +137,23 @@ func (ic InputConfig) Config() (Config, error) {
 		return Config{}, err
 	}
 
+	port, err := normalizePort(ic.Port)
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		DB: ic.DB,
 		Rules: rules,
+		Port: port,
 	}, nil
+}
+
+func normalizePort(orig int) (int, error) {
+	if orig == 0 {
+		return 80, nil
+	}
+	return orig, nil
 }
 
 func normalizeRules(orig []InputRule) ([]Rule, error) {
@@ -330,7 +345,7 @@ func main() {
 		}
 		router.Handle(string(rule.Method), rule.Path, createHandler(db, querySet))
 	}
-	fmt.Println(http.ListenAndServe(":8000", router))
+	fmt.Println(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router))
 }
 
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {

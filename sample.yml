@@ -10,3 +10,4 @@ rules:
     transaction: true
   - path: /create/
     query: INSERT INTO test (body) VALUES ({{body}});
+port: 8000

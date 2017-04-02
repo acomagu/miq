@@ -2,22 +2,23 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"net/http"
-	"os"
 	"github.com/pkg/errors"
 	"encoding/json"
 	"gopkg.in/yaml.v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
-	"text/template"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var settings = `
 driver: sqlite3
 rules:
-  - path: /show/:id
-    query: SELECT * FROM test WHERE id = '{{.id}}';
+  - path: /show/:id/
+    query: SELECT * FROM test WHERE id = {{id}};
+  - path: /showall/
+    query: SELECT * FROM test; SELECT * FROM TEST;
   - path: /create/
     query: INSERT INTO test (body) VALUES ("lililil"), ("OUE");
 `
@@ -51,14 +52,70 @@ type InputConfig struct {
 
 // QuerySet contains all queries to execute.
 type QuerySet struct {
-	Befores []string
-	Queries []string
-	Afters []string
+	Befores []Query
+	Queries []Query
+	Afters []Query
+}
+
+func newQuerySet(db *sqlx.DB, rule Rule) (QuerySet, error) {
+	befores, err := newQueries(db, rule.Befores)
+	if err != nil {
+		return QuerySet{}, err
+	}
+
+	queries, err := newQueries(db, rule.Queries)
+	if err != nil {
+		return QuerySet{}, err
+	}
+
+	afters, err := newQueries(db, rule.Afters)
+	if err != nil {
+		return QuerySet{}, err
+	}
+
+	return QuerySet{
+		Befores: befores,
+		Queries: queries,
+		Afters: afters,
+	}, nil
+}
+
+func newQueries(db *sqlx.DB, qss []string) ([]Query, error) {
+	queries := []Query{}
+	for _, qs := range qss {
+		q, err := newQuery(db, qs)
+		if err != nil {
+			return []Query{}, err
+		}
+		queries = append(queries, q)
+	}
+	return queries, nil
+}
+
+func newQuery(db *sqlx.DB, qs string) (Query, error) {
+	re := regexp.MustCompile(`\{\{(\w+)\}\}`)
+	groups := re.FindAllStringSubmatch(qs, -1)
+
+	argKeys := []string{}
+	for _, group := range groups {
+		argKeys = append(argKeys, group[1])
+	}
+	replaced := re.ReplaceAllString(qs, "?")
+	stmt, err := db.Preparex(replaced)
+	if err != nil {
+		return Query{}, SQLParseError(errors.Wrap(err, "failed to parse SQL"))
+	}
+	return Query{
+		SQL: stmt,
+		ArgKeys: argKeys,
+	}, nil
 }
 
 // Rule is part of `Config`, it's set of the routing path and the SQL query.
 type Rule struct {
-	QuerySet
+	Befores []string
+	Queries []string
+	Afters []string
 	Path string
 	Method Method
 	Transaction bool
@@ -121,14 +178,10 @@ func normalizeRule(orig InputRule) (Rule, error) {
 		return Rule{}, err
 	}
 
-	querySet := QuerySet{
+	return Rule{
 		Befores: befores,
 		Queries: queries,
 		Afters: afters,
-	}
-
-	return Rule{
-		QuerySet: querySet,
 		Method: method,
 		Path: path,
 	}, nil
@@ -213,6 +266,31 @@ const (
 // QueryExecutionError causes in execution SQL query
 type QueryExecutionError error
 
+// UnknownArgError causes when given undefined parameters name in path at SOL.
+type UnknownArgError error
+
+// SQLParseError causes when failed to parse SQL.
+type SQLParseError error
+
+// Query is data set for one SQL query execution
+type Query struct{
+	SQL *sqlx.Stmt
+	ArgKeys []string
+}
+
+// ExecuteWithArgMap executes the Query. `params` is map of param key and value.
+func (q Query) ExecuteWithArgMap(params map[string]interface{}) (*sqlx.Rows, error) {
+	args := []interface{}{}
+	for _, argKey := range q.ArgKeys {
+		arg, ok := params[argKey]
+		if !ok {
+			return nil, UnknownArgError(errors.Errorf("unknown argument name: %s", argKey))
+		}
+		args = append(args, arg)
+	}
+	return q.SQL.Queryx(args...)
+}
+
 func main() {
 	inputConfig := InputConfig{}
 	yaml.Unmarshal([]byte(settings), &inputConfig)
@@ -229,7 +307,12 @@ func main() {
 
 	router := httprouter.New()
 	for _, rule := range config.Rules {
-		router.Handle(string(rule.Method), rule.Path, createHandler(db, rule.QuerySet))
+		querySet, err := newQuerySet(db, rule)
+		if err != nil {
+			fmt.Println(errors.Wrap(err, "failed to compile query"))
+			return
+		}
+		router.Handle(string(rule.Method), rule.Path, createHandler(db, querySet))
 	}
 	fmt.Println(http.ListenAndServe(":8000", router))
 }
@@ -268,7 +351,7 @@ func getErrorType(err error) string {
 	return "Unknown"
 }
 
-func executeQueriesRowMaps(db *sqlx.DB, qs []string, paramMap map[string]string) ([]map[string]interface{}, error) {
+func executeQueriesRowMaps(db *sqlx.DB, qs []Query, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
 	concated := []map[string]interface{}{}
 	for _, q := range qs {
 		rowMap, err := executeRowMaps(db, q, paramMap)
@@ -280,17 +363,8 @@ func executeQueriesRowMaps(db *sqlx.DB, qs []string, paramMap map[string]string)
 	return concated, nil
 }
 
-func executeRowMaps(db *sqlx.DB, q string, paramMap map[string]string) ([]map[string]interface{}, error) {
-	t, err := template.New("sql").Parse(q)
-	if err != nil {
-		return nil, err
-	}
-	err = t.Execute(os.Stdout, paramMap)
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := db.Queryx(q)
+func executeRowMaps(db *sqlx.DB, q Query, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
+	rows, err := q.ExecuteWithArgMap(paramMap)
 	if err != nil {
 		return nil, QueryExecutionError(errors.Wrap(err, "failed to execute query"))
 	}
@@ -301,8 +375,8 @@ func executeRowMaps(db *sqlx.DB, q string, paramMap map[string]string) ([]map[st
 	return res, nil
 }
 
-func createParamMap(params httprouter.Params) map[string]string {
-	result := make(map[string]string)
+func createParamMap(params httprouter.Params) map[string]interface{} {
+	result := make(map[string]interface{})
 	for _, param := range params {
 		result[param.Key] = param.Value
 	}

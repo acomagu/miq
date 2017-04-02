@@ -43,13 +43,13 @@ type DBConfig struct {
 	Filepath string `yaml:"filepath"`
 }
 
-// InputConfig is for reading YAML config file
+// InputConfig is for reading YAML config file.
 type InputConfig struct {
 	DB DBConfig `yaml:"db"`
 	Rules []InputRule `yaml:"rules"`
 }
 
-// QuerySet contains all queries to execute.
+// QuerySet contains all queries to execute for a Rule.
 type QuerySet struct {
 	Befores []Query
 	Queries []Query

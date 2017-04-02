@@ -21,6 +21,7 @@ rules:
     query: SELECT * FROM test WHERE id = {{id}};
   - path: /showall/
     query: SELECT * FROM test; SELECT * FROM TEST;
+    transaction: true
   - path: /create/
     query: INSERT INTO test (body) VALUES ("lililil"), ("OUE");
 `
@@ -63,6 +64,7 @@ type QuerySet struct {
 	Befores []Query
 	Queries []Query
 	Afters []Query
+	Transaction bool
 }
 
 func newQuerySet(db *sqlx.DB, rule Rule) (QuerySet, error) {
@@ -85,6 +87,7 @@ func newQuerySet(db *sqlx.DB, rule Rule) (QuerySet, error) {
 		Befores: befores,
 		Queries: queries,
 		Afters: afters,
+		Transaction: rule.Transaction,
 	}, nil
 }
 
@@ -186,13 +189,23 @@ func normalizeRule(orig InputRule) (Rule, error) {
 		return Rule{}, err
 	}
 
+	transaction, err := normalizeTransaction(orig.Transaction)
+	if err != nil {
+		return Rule{}, err
+	}
+
 	return Rule{
 		Befores: befores,
 		Queries: queries,
 		Afters: afters,
 		Method: method,
 		Path: path,
+		Transaction: transaction,
 	}, nil
+}
+
+func normalizeTransaction(orig bool) (bool, error) {
+	return orig, nil
 }
 
 func normalizePath(orig string) (string, error) {

@@ -1,60 +1,59 @@
 package main
 
 import (
-	"fmt"
-	"io"
-	"io/ioutil"
-	"regexp"
-	"os"
-	"net/http"
-	"github.com/pkg/errors"
 	"encoding/json"
-	"gopkg.in/yaml.v2"
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"regexp"
 )
-
 
 // Response defines the JSON contents for response to resource request by HTTP.
 type Response struct {
-	Success bool `json:"success"`
-	Rows []map[string]interface{} `json:"rows"`
-	ErrorType string `json:"errorType"`
-	ErrorDescription string `json:"errorDescription"`
+	Success          bool                     `json:"success"`
+	Rows             []map[string]interface{} `json:"rows"`
+	ErrorType        string                   `json:"errorType"`
+	ErrorDescription string                   `json:"errorDescription"`
 }
 
 // InputRule is part of InputConfig
 type InputRule struct {
-	Path string
-	Before string
-	Befores []string
-	Query string
-	Queries []string
-	After string
-	Afters []string
-	Method string
+	Path        string
+	Before      string
+	Befores     []string
+	Query       string
+	Queries     []string
+	After       string
+	Afters      []string
+	Method      string
 	Transaction bool
 }
 
 // DBConfig is parameters for opening connection to database.
 type DBConfig struct {
-	Driver string `yaml:"driver"`
+	Driver   string `yaml:"driver"`
 	Filepath string `yaml:"filepath"`
 }
 
 // InputConfig is for reading YAML config file.
 type InputConfig struct {
-	DB DBConfig `yaml:"db"`
+	DB    DBConfig    `yaml:"db"`
 	Rules []InputRule `yaml:"rules"`
-	Port int `yaml:"port"`
+	Port  int         `yaml:"port"`
 }
 
 // QuerySet contains all queries to execute for a Rule.
 type QuerySet struct {
-	Befores []Query
-	Queries []Query
-	Afters []Query
+	Befores     []Query
+	Queries     []Query
+	Afters      []Query
 	Transaction bool
 }
 
@@ -75,9 +74,9 @@ func newQuerySet(db *sqlx.DB, rule Rule) (QuerySet, error) {
 	}
 
 	return QuerySet{
-		Befores: befores,
-		Queries: queries,
-		Afters: afters,
+		Befores:     befores,
+		Queries:     queries,
+		Afters:      afters,
 		Transaction: rule.Transaction,
 	}, nil
 }
@@ -108,26 +107,26 @@ func newQuery(db *sqlx.DB, qs string) (Query, error) {
 		return Query{}, SQLParseError(errors.Wrap(err, "failed to parse SQL"))
 	}
 	return Query{
-		SQL: stmt,
+		SQL:     stmt,
 		ArgKeys: argKeys,
 	}, nil
 }
 
 // Rule is part of `Config`, it's set of the routing path and the SQL query.
 type Rule struct {
-	Befores []string
-	Queries []string
-	Afters []string
-	Path string
-	Method Method
+	Befores     []string
+	Queries     []string
+	Afters      []string
+	Path        string
+	Method      Method
 	Transaction bool
 }
 
 // Config contains configs of whole app
 type Config struct {
-	DB DBConfig
+	DB    DBConfig
 	Rules []Rule
-	Port int
+	Port  int
 }
 
 // Config returns one converted to Config struct
@@ -143,9 +142,9 @@ func (ic InputConfig) Config() (Config, error) {
 	}
 
 	return Config{
-		DB: ic.DB,
+		DB:    ic.DB,
 		Rules: rules,
-		Port: port,
+		Port:  port,
 	}, nil
 }
 
@@ -200,11 +199,11 @@ func normalizeRule(orig InputRule) (Rule, error) {
 	}
 
 	return Rule{
-		Befores: befores,
-		Queries: queries,
-		Afters: afters,
-		Method: method,
-		Path: path,
+		Befores:     befores,
+		Queries:     queries,
+		Afters:      afters,
+		Method:      method,
+		Path:        path,
 		Transaction: transaction,
 	}, nil
 }
@@ -268,7 +267,6 @@ func newMethod(method string) (Method, error) {
 	return "", fmt.Errorf("invalid method name")
 }
 
-
 // Method is enum for HTTP methods.
 type Method string
 
@@ -299,8 +297,8 @@ type UnknownArgError error
 type SQLParseError error
 
 // Query is data set for one SQL query execution
-type Query struct{
-	SQL *sqlx.Stmt
+type Query struct {
+	SQL     *sqlx.Stmt
 	ArgKeys []string
 }
 
@@ -363,7 +361,7 @@ func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 
 		bts, marshalErr := json.Marshal(Response{
 			Success: true,
-			Rows: rowMaps,
+			Rows:    rowMaps,
 		})
 		if marshalErr != nil {
 			panic(marshalErr)
@@ -374,8 +372,8 @@ func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 
 func createErrorResponseBytes(err error) []byte {
 	bts, marshalErr := json.Marshal(Response{
-		Success: false,
-		ErrorType: getErrorType(err),
+		Success:          false,
+		ErrorType:        getErrorType(err),
 		ErrorDescription: err.Error(),
 	})
 	if marshalErr != nil {

@@ -340,7 +340,7 @@ func main() {
 
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		rowMaps, err := executeQueriesRowMaps(db, q.Queries, createParamMap(params))
+		rowMaps, err := executeQuerySet(db, q, createParamMap(params))
 		if err != nil {
 			bts, marshalErr := json.Marshal(Response{
 				Success: false,
@@ -364,6 +364,55 @@ func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	}
 }
 
+func executeQuerySet(db *sqlx.DB, querySet QuerySet, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
+	var op sqlx.Queryer
+	if querySet.Transaction {
+		var err error
+		op, err = db.Beginx()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		op = db
+	}
+
+	err := executeQueries(op, querySet.Befores, paramMap)
+	if err != nil {
+		_ = rollbackPossibly(op)
+		return nil, err
+	}
+
+	rowMaps, err := executeQueriesRowMaps(op, querySet.Queries, paramMap)
+	if err != nil {
+		_ = rollbackPossibly(op)
+		return nil, err
+	}
+
+	err = executeQueries(op, querySet.Afters, paramMap)
+	if err != nil {
+		_ = rollbackPossibly(op)
+		return nil, err
+	}
+	_ = commitPossibly(op)
+	return rowMaps, nil
+}
+
+func rollbackPossibly(op sqlx.Queryer) bool {
+	if tx, ok := op.(*sqlx.Tx); ok {
+		tx.Rollback()
+		return true
+	}
+	return false
+}
+
+func commitPossibly(op sqlx.Queryer) bool {
+	if tx, ok := op.(*sqlx.Tx); ok {
+		tx.Commit()
+		return true
+	}
+	return false
+}
+
 func getErrorType(err error) string {
 	switch err.(type) {
 	case QueryExecutionError:
@@ -372,7 +421,12 @@ func getErrorType(err error) string {
 	return "Unknown"
 }
 
-func executeQueriesRowMaps(db *sqlx.DB, qs []Query, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
+func executeQueries(db sqlx.Queryer, qs []Query, paramMap map[string]interface{}) error {
+	_, err := executeQueriesRowMaps(db, qs, paramMap)
+	return err
+}
+
+func executeQueriesRowMaps(db sqlx.Queryer, qs []Query, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
 	concated := []map[string]interface{}{}
 	for _, q := range qs {
 		rowMap, err := executeRowMaps(db, q, paramMap)
@@ -384,7 +438,7 @@ func executeQueriesRowMaps(db *sqlx.DB, qs []Query, paramMap map[string]interfac
 	return concated, nil
 }
 
-func executeRowMaps(db *sqlx.DB, q Query, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
+func executeRowMaps(db sqlx.Queryer, q Query, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
 	rows, err := q.ExecuteWithArgMap(paramMap)
 	if err != nil {
 		return nil, QueryExecutionError(errors.Wrap(err, "failed to execute query"))

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"net/http"
 	"github.com/pkg/errors"
@@ -340,17 +341,15 @@ func main() {
 
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		rowMaps, err := executeQuerySet(db, q, createParamMap(params))
+		paramMap, err := createParamMap(req, params)
 		if err != nil {
-			bts, marshalErr := json.Marshal(Response{
-				Success: false,
-				ErrorType: getErrorType(err),
-				ErrorDescription: err.Error(),
-			})
-			if marshalErr != nil {
-				panic(marshalErr)
-			}
-			w.Write(bts)
+			w.Write(createErrorResponseBytes(err))
+			return
+		}
+		rowMaps, err := executeQuerySet(db, q, paramMap)
+		if err != nil {
+			w.Write(createErrorResponseBytes(err))
+			return
 		}
 
 		bts, marshalErr := json.Marshal(Response{
@@ -362,6 +361,18 @@ func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 		}
 		w.Write(bts)
 	}
+}
+
+func createErrorResponseBytes(err error) []byte {
+	bts, marshalErr := json.Marshal(Response{
+		Success: false,
+		ErrorType: getErrorType(err),
+		ErrorDescription: err.Error(),
+	})
+	if marshalErr != nil {
+		panic(marshalErr)
+	}
+	return bts
 }
 
 func executeQuerySet(db *sqlx.DB, querySet QuerySet, paramMap map[string]interface{}) ([]map[string]interface{}, error) {
@@ -450,12 +461,34 @@ func executeRowMaps(db sqlx.Queryer, q Query, paramMap map[string]interface{}) (
 	return res, nil
 }
 
-func createParamMap(params httprouter.Params) map[string]interface{} {
+// RequestBodyParseError causes when invalid JSON given as request body.
+type RequestBodyParseError error
+
+func createParamMap(req *http.Request, params httprouter.Params) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	for _, param := range params {
 		result[param.Key] = param.Value
 	}
-	return result
+
+	reqBody := make(map[string]interface{})
+	err := json.NewDecoder(req.Body).Decode(&reqBody)
+	defer req.Body.Close()
+	if err != io.EOF {
+		if err != nil {
+			return nil, RequestBodyParseError(errors.Wrap(err, "request body must be only 1 hieralchical key/value pairs"))
+		}
+		for k, v := range reqBody {
+			result[k] = v
+		}
+	}
+
+	// Note that only string value can be passed by URL Queries.
+	q := req.URL.Query()
+	for k, v := range q {
+		result[k] = v[0]
+	}
+
+	return result, nil
 }
 
 type mapString []byte

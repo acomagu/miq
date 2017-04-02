@@ -1,0 +1,12 @@
+db:
+  driver: sqlite3
+  filepath: test.db
+rules:
+  - path: /show/:id/
+    query: SELECT * FROM test WHERE id = {{id}};
+  - path: /showall/
+    queries:
+      - SELECT * FROM test;
+    transaction: true
+  - path: /create/
+    query: INSERT INTO test (body) VALUES ({{body}});

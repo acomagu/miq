@@ -13,7 +13,9 @@ import (
 )
 
 var settings = `
-driver: sqlite3
+db:
+  driver: sqlite3
+  filepath: test.db
 rules:
   - path: /show/:id/
     query: SELECT * FROM test WHERE id = {{id}};
@@ -44,9 +46,15 @@ type InputRule struct {
 	Transaction bool
 }
 
+// DBConfig is parameters for opening connection to database.
+type DBConfig struct {
+	Driver string `yaml:"driver"`
+	Filepath string `yaml:"filepath"`
+}
+
 // InputConfig is for reading YAML config file
 type InputConfig struct {
-	Driver string `yaml:"driver"`
+	DB DBConfig `yaml:"db"`
 	Rules []InputRule `yaml:"rules"`
 }
 
@@ -123,7 +131,7 @@ type Rule struct {
 
 // Config contains configs of whole app
 type Config struct {
-	Driver string
+	DB DBConfig
 	Rules []Rule
 }
 
@@ -135,7 +143,7 @@ func (ic InputConfig) Config() (Config, error) {
 	}
 
 	return Config{
-		Driver: ic.Driver,
+		DB: ic.DB,
 		Rules: rules,
 	}, nil
 }
@@ -300,7 +308,7 @@ func main() {
 		return
 	}
 
-	db, err := sqlx.Open(config.Driver, "./test.db")
+	db, err := sqlx.Open(config.DB.Driver, config.DB.Filepath)
 	if err != nil {
 		panic(err)
 	}

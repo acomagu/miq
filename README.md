@@ -25,6 +25,8 @@ rules:
 
 Go `/show/3`, and you can get `{"success":true,"rows":[{ ... ,"id":3}]}` or something like this.
 
+Or you can give variables as URL query or request body(JSON). For example, request `/create?body='abc'` and a record is inserted.
+
 To start server, run
 
 ```bash

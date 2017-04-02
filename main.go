@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
+	"os"
 	"net/http"
 	"github.com/pkg/errors"
 	"encoding/json"
@@ -13,19 +15,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var settings = `
-db:
-  driver: sqlite3
-  filepath: test.db
-rules:
-  - path: /show/:id/
-    query: SELECT * FROM test WHERE id = {{id}};
-  - path: /showall/
-    query: SELECT * FROM test; SELECT * FROM TEST;
-    transaction: true
-  - path: /create/
-    query: INSERT INTO test (body) VALUES ("lililil"), ("OUE");
-`
 
 // Response defines the JSON contents for response to resource request by HTTP.
 type Response struct {
@@ -315,7 +304,12 @@ func (q Query) ExecuteWithArgMap(params map[string]interface{}) (*sqlx.Rows, err
 
 func main() {
 	inputConfig := InputConfig{}
-	yaml.Unmarshal([]byte(settings), &inputConfig)
+	bts, err := ioutil.ReadFile(os.Args[1])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	yaml.Unmarshal(bts, &inputConfig)
 	config, err := inputConfig.Config()
 	if err != nil {
 		fmt.Printf("invalid configuration: %s\n", err)

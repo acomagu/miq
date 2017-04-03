@@ -349,7 +349,7 @@ func main() {
 
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		paramMap, err := createParamMap(req, params)
 		if err != nil {

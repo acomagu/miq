@@ -3,16 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/julienschmidt/httprouter"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/julienschmidt/httprouter"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 // Response defines the JSON contents for response to resource request by HTTP.
@@ -348,6 +349,8 @@ func main() {
 
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
 		paramMap, err := createParamMap(req, params)
 		if err != nil {
 			w.Write(createErrorResponseBytes(err))

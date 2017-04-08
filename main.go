@@ -3,15 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 )
 
 // Response defines the JSON contents for response to resource request by HTTP.
@@ -23,13 +20,12 @@ type Response struct {
 }
 
 func main() {
-	inputConfig := InputConfig{}
-	bts, err := ioutil.ReadFile(os.Args[1])
+	inputConfig, err := readConfigs()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	yaml.Unmarshal(bts, &inputConfig)
+
 	config, err := inputConfig.Config()
 	if err != nil {
 		fmt.Printf("invalid configuration: %s\n", err)

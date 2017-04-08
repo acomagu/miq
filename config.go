@@ -2,6 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+
+	"github.com/caarlos0/env"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 // Rule is part of `Config`, it's set of the routing path and the SQL query.
@@ -29,8 +35,8 @@ type InputRule struct {
 
 // DBConfig is parameters for opening connection to database.
 type DBConfig struct {
-	Driver   string `yaml:"driver"`
-	Filepath string `yaml:"filepath"`
+	Driver   string `yaml:"driver" env:"DB_DRIVER"`
+	Filepath string `yaml:"filepath" env:"DB_FILEPATH"`
 }
 
 // InputConfig is for reading YAML config file.
@@ -165,4 +171,20 @@ func normalizeQuery(query string, queries []string) ([]string, error) {
 		return queries, nil
 	}
 	return []string{}, fmt.Errorf("at least one SQL query must be given per rule")
+}
+
+func readConfigs() (InputConfig, error) {
+	inputConfig := InputConfig{}
+
+	// Read configuration from YAML
+	bts, err := ioutil.ReadFile(os.Args[1])
+	if err != nil {
+		return InputConfig{}, errors.Wrap(err, "failed to read config file")
+	}
+	yaml.Unmarshal(bts, inputConfig)
+
+	// Read it from environment variables
+	env.Parse(inputConfig)
+
+	return inputConfig, nil
 }

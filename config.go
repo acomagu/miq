@@ -37,6 +37,9 @@ type InputRule struct {
 type DBConfig struct {
 	Driver   string `yaml:"driver" env:"DB_DRIVER"`
 	Filepath string `yaml:"filepath" env:"DB_FILEPATH"`
+	Name     string `yaml:"name" env:"DB_NAME"`
+	Username string `yaml:"username" env:"DB_USERNAME"`
+	Password string `yaml:"password" env:"DB_PASSWORD"`
 }
 
 // InputConfig is for reading YAML config file.

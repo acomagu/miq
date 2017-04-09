@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/acomagu/dsns-go/dsns"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/mattn/go-sqlite3"
@@ -32,7 +33,12 @@ func main() {
 		return
 	}
 
-	db, err := sqlx.Open(config.DB.Driver, config.DB.Filepath)
+	s := dsns.NewSource(config.DB.Name, config.DB.Username, config.DB.Password, config.DB.Filepath)
+	dsn, err := s.ByDriverName(config.DB.Driver)
+	if err != nil {
+		fmt.Println(err)
+	}
+	db, err := sqlx.Open(config.DB.Driver, dsn)
 	if err != nil {
 		panic(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -19,6 +20,9 @@ type Response struct {
 	ErrorType        string                   `json:"errorType"`
 	ErrorDescription string                   `json:"errorDescription"`
 }
+
+// TimeoutError causes when exceed given deadline for retring callback.
+type TimeoutError error
 
 func main() {
 	inputConfig, err := readConfigs()
@@ -61,8 +65,34 @@ func openDB(config Config) (*sqlx.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = retryDuring(30*time.Second, 1*time.Second, func() error {
+		return db.Ping()
+	})
+	if err != nil {
+		return nil, err
+	}
 	return db, nil
 }
+
+func retryDuring(duration time.Duration, sleep time.Duration, callback func() error) error {
+	timeout := time.After(duration)
+
+	for i := 0; ; i++ {
+		retry := time.After(sleep)
+
+		err := callback()
+		if err == nil {
+			return nil
+		}
+
+		select {
+		case <-timeout:
+			return TimeoutError(fmt.Errorf("after %d attempts (during %s), last error: %s", i, duration, err))
+		case <-retry:
+		}
+	}
+}
+
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")

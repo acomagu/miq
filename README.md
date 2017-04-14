@@ -6,6 +6,10 @@ Create API server with RDB from few lines of YAML.
 
 This approach is inspired by Microservices. This is for only internal, not for public server(Authentification is not supported).
 
+## Demo
+
+You can try [Sample with Docker](https://github.com/acomagu/miq-mysql-sample) immediately!
+
 ## Usage
 
 ```yaml

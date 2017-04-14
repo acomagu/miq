@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/acomagu/dsns-go/dsns"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
@@ -34,8 +33,6 @@ func main() {
 		return
 	}
 
-	s := dsns.NewSource(config.DB.Name, config.DB.Username, config.DB.Password, config.DB.Filepath)
-	dsn, err := s.ByDriverName(config.DB.Driver)
 	db, err := openDB(config)
 	if err != nil {
 		fmt.Println(err)

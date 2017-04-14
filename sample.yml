@@ -3,7 +3,7 @@ db:
   filepath: test.db
 rules:
   - path: /show/:id/
-    query: SELECT * FROM test WHERE id = {{id}};
+    query: "SELECT * FROM test WHERE id = {{id}};"
   - path: /showall/
     queries:
       - SELECT * FROM test;

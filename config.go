@@ -206,10 +206,10 @@ func readConfigs() (InputConfig, error) {
 	if err != nil {
 		return InputConfig{}, errors.Wrap(err, "failed to read config file")
 	}
-	yaml.Unmarshal(bts, inputConfig)
+	yaml.Unmarshal(bts, &inputConfig)
 
 	// Read it from environment variables
-	env.Parse(inputConfig)
+	env.Parse(&inputConfig.DB)
 
 	return inputConfig, nil
 }

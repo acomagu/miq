@@ -20,9 +20,7 @@ rules:
   - path: /show/:id/
     query: SELECT * FROM test WHERE id = {{id}};
   - path: /showall/
-    queries:
-      - SELECT * FROM test;
-    transaction: true
+    query: SELECT * FROM test;
   - path: /create/
     query: INSERT INTO test (body) VALUES ({{body}});
 ```

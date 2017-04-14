@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/caarlos0/env"
+	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -41,9 +41,9 @@ type DBConfig struct {
 	Name     string `yaml:"name" env:"DB_NAME"`
 	Username string `yaml:"username" env:"DB_USERNAME"`
 	Password string `yaml:"password" env:"DB_PASSWORD"`
-	Net string `yaml:"net" env:"DB_NET"`
-	Host string `yaml:"host" env:"DB_HOST"`
-	Port string `yaml:"port" env:"DB_PORT"`
+	Net      string `yaml:"net" env:"DB_NET"`
+	Host     string `yaml:"host" env:"DB_HOST"`
+	Port     string `yaml:"port" env:"DB_PORT"`
 }
 
 // DSN makes database DSN string and returns.

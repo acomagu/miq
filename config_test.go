@@ -1,25 +1,25 @@
 package main
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 func TestNormalizeRules(t *testing.T) {
 	inputs := []InputRule{
 		InputRule{
-			Path: "/aaa/",
-			Query: "SELECT * FROM test",
+			Path:   "/aaa/",
+			Query:  "SELECT * FROM test",
 			Method: "GET",
 		},
 	}
 	expects := []Rule{
 		Rule{
-			Befores: []string{},
-			Queries: []string{"SELECT * FROM test"},
-			Afters: []string{},
-			Path: "/aaa/",
-			Method: GET,
+			Befores:     []string{},
+			Queries:     []string{"SELECT * FROM test"},
+			Afters:      []string{},
+			Path:        "/aaa/",
+			Method:      GET,
 			Transaction: false,
 		},
 	}
@@ -45,17 +45,17 @@ func (a Rule) equalTo(b Rule) bool {
 func TestDBConfigDSN(t *testing.T) {
 	inputs := []DBConfig{
 		DBConfig{
-			Driver: "sqlite3",
+			Driver:   "sqlite3",
 			Filepath: "./test.db",
 		},
 		DBConfig{
-			Driver: "mysql",
-			Name: "app",
+			Driver:   "mysql",
+			Name:     "app",
 			Username: "user",
 			Password: "pass",
-			Net: "tcp",
-			Host: "localhost",
-			Port: "3306",
+			Net:      "tcp",
+			Host:     "localhost",
+			Port:     "3306",
 		},
 	}
 	expects := []string{

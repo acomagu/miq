@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/acomagu/dsns-go/dsns"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/mattn/go-sqlite3"
@@ -35,12 +36,10 @@ func main() {
 
 	s := dsns.NewSource(config.DB.Name, config.DB.Username, config.DB.Password, config.DB.Filepath)
 	dsn, err := s.ByDriverName(config.DB.Driver)
+	db, err := openDB(config)
 	if err != nil {
 		fmt.Println(err)
-	}
-	db, err := sqlx.Open(config.DB.Driver, dsn)
-	if err != nil {
-		panic(err)
+		return
 	}
 
 	router := httprouter.New()
@@ -55,6 +54,18 @@ func main() {
 	fmt.Println(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router))
 }
 
+func openDB(config Config) (*sqlx.DB, error) {
+	dsn, err := config.DB.DSN()
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := sqlx.Open(config.DB.Driver, dsn)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
 func createHandler(db *sqlx.DB, q QuerySet) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")

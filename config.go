@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/caarlos0/env"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -40,6 +41,27 @@ type DBConfig struct {
 	Name     string `yaml:"name" env:"DB_NAME"`
 	Username string `yaml:"username" env:"DB_USERNAME"`
 	Password string `yaml:"password" env:"DB_PASSWORD"`
+	Net string `yaml:"net" env:"DB_NET"`
+	Host string `yaml:"host" env:"DB_HOST"`
+	Port string `yaml:"port" env:"DB_PORT"`
+}
+
+// DSN makes database DSN string and returns.
+func (dbconfig DBConfig) DSN() (string, error) {
+	switch dbconfig.Driver {
+	case "mysql":
+		mysqlConfig := mysql.Config{
+			DBName: dbconfig.Name,
+			User:   dbconfig.Username,
+			Passwd: dbconfig.Password,
+			Net:    dbconfig.Net,
+			Addr:   dbconfig.Host + ":" + dbconfig.Port,
+		}
+		return mysqlConfig.FormatDSN(), nil
+	case "sqlite3":
+		return dbconfig.Filepath, nil
+	}
+	return "", fmt.Errorf("invalid driver name")
 }
 
 // InputConfig is for reading YAML config file.

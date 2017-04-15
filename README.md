@@ -1,5 +1,5 @@
 # miq
-[![Docker Build Statu](https://img.shields.io/docker/build/acomagu/miq.svg?style=flat-square)](https://hub.docker.com/r/acomagu/miq/) [![CircleCI](https://img.shields.io/circleci/project/github/acomagu/miq.svg?style=flat-square)](https://circleci.com/gh/acomagu/miq)
+[![Docker Build Statu](https://img.shields.io/docker/build/acomagu/miq.svg?style=flat-square)](https://hub.docker.com/r/acomagu/miq/) [![CircleCI](https://img.shields.io/circleci/project/github/acomagu/miq.svg?style=flat-square)](https://circleci.com/gh/acomagu/miq) [![Go Report Card](https://goreportcard.com/badge/github.com/acomagu/miq?style=flat-square)](https://goreportcard.com/report/github.com/acomagu/miq)
 
 Create API server with RDB from few lines of YAML.
 

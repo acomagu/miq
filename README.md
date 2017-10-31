@@ -39,7 +39,7 @@ $ miq sample.yml
 
 ## Requirement
 - Go
-- sqlite3(other RDB is not supported yet)
+- RDB(sqlite3 and mysql are currently supported)
 
 ## Install
 ```bash
